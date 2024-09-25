@@ -1,226 +1,334 @@
+#include <iomanip>
 #include <iostream>
+#include <limits>
+#include <vector>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <cstdlib>
+#endif
 
 using namespace std;
 
-int escolhamodo;
-const int SIZE = 15; // Tamanho do tabuleiro
+const int b_size = 15;
+int navios[5] = {2, 2, 3, 3, 4};
 
-// Função para inicializar o tabuleiro
-void inicializaTabuleiro(char tabuleiro[SIZE][SIZE]) {
-    for (int i = 0; i < SIZE; i++) {
-        for (int j = 0; j < SIZE; j++) {
-            tabuleiro[i][j] = ' '; // '' representa água
-        }
+void inicializaTabuleiro(char tabuleiro[b_size][b_size]) {
+  for (int i = 0; i < b_size; i++) {
+    for (int j = 0; j < b_size; j++) {
+      tabuleiro[i][j] = '0';
     }
+  }
 }
 
-// Função para imprimir o tabuleiro (escondendo navios do adversário)
-void imprimeTabuleiro(char tabuleiro[SIZE][SIZE], bool esconderNavios) {
-    cout << "   ";
-    for (int i = 1; i <= SIZE; i++) {
-        if (i < 10) cout << " " << i << " ";  // Espaçamento para manter alinhamento
-        else cout << i << " ";
+void imprimeTabuleiro(const char tabuleiro[b_size][b_size],
+                      bool revelarNavios = false) {
+  cout << endl;
+  cout << "    ";
+  for (int i = 1; i <= b_size; i++) {
+    cout << setw(3) << i;
+  }
+  cout << endl;
+  for (int i = 0; i < b_size; i++) {
+    cout << " " << (char)('A' + i) << " |";
+    for (int j = 0; j < b_size; j++) {
+      if (!revelarNavios && tabuleiro[i][j] == 'N') {
+        cout << setw(3) << '0';
+      } else {
+        cout << setw(3) << tabuleiro[i][j];
+      }
     }
     cout << endl;
-
-    for (int i = 0; i < SIZE; i++) {
-        cout << (char)('A' + i) << " "; // Imprime as letras das linhas
-        if(i < 9) cout << " "; // Adiciona um espaço adicional para alinhar
-        for (int j = 0; j < SIZE; j++) {
-            if (esconderNavios && tabuleiro[i][j] == 'N') {
-                cout << "~  "; // Esconde os navios do adversário
-            } else {
-                cout << tabuleiro[i][j] << "  ";
-            }
-        }
-        cout << endl;
-    }
+  }
 }
 
-// Função para verificar se o navio pode ser colocado em uma posição específica
-bool podePosicionarNavio(char tabuleiro[SIZE][SIZE], int x, int y, int tamanho, char direcao) {
-    if (direcao == 'H') { // Horizontal
-        if (y + tamanho > SIZE) return false; // Verifica se há espaço
-        for (int i = 0; i < tamanho; i++) {
-            if (tabuleiro[x][y + i] != '~') return false; // Verifica se o espaço está livre
-        }
-    } else if (direcao == 'V') { // Vertical
-        if (x + tamanho > SIZE) return false; // Verifica se há espaço
-        for (int i = 0; i < tamanho; i++) {
-            if (tabuleiro[x + i][y] != '~') return false; // Verifica se o espaço está livre
-        }
-    }
-    return true;
+bool podePosicionarNavioManual(const char tabuleiro[b_size][b_size], int linha,
+                               int coluna) {
+  return tabuleiro[linha][coluna] == '0';
 }
 
-// Função para posicionar um navio no tabuleiro
-void posicionaNavio(char tabuleiro[SIZE][SIZE], int tamanho) {
-    char linhaChar;
-    int x, y;
-    char direcao;
-    bool posicionado = false;
+bool posicaoEhAdjacente(int linhaAnterior, int colunaAnterior, int linhaAtual,
+                        int colunaAtual) {
+  return (abs(linhaAnterior - linhaAtual) <= 1 &&
+          abs(colunaAnterior - colunaAtual) <= 1);
+}
 
+void posicionarNavioManual(char tabuleiro[b_size][b_size], int tamanho,
+                           const string &jogador) {
+  char linhaChar;
+  int x, y;
+  bool posicionado = false;
+
+  vector<pair<int, int>> partesNavio;
+
+  for (int i = 0; i < tamanho; i++) {
     while (!posicionado) {
-        cout << "Posicione o navio de tamanho " << tamanho << " (linha coluna direção [H/V]): ";
-        cin >> linhaChar >> y >> direcao;
+      cout << endl
+           << jogador << ", posicione a parte " << i + 1
+           << " do navio de tamanho " << tamanho << " (linha coluna): ";
+      cin >> linhaChar >> y;
 
-        x = linhaChar - 'A'; // Converte a linha de char para um índice de 0 a 14
-        y -= 1; // Ajusta a coluna para índice de 0 a 14
+      linhaChar = toupper(linhaChar);
 
-        if (direcao != 'H' && direcao != 'V') {
-            cout << "Direção inválida, use 'H' para horizontal ou 'V' para vertical." << endl;
-            continue;
-        }
-
-        if (x >= 0 && x < SIZE && y >= 0 && y < SIZE && podePosicionarNavio(tabuleiro, x, y, tamanho, direcao)) {
-            if (direcao == 'H') {
-                for (int i = 0; i < tamanho; i++) {
-                    tabuleiro[x][y + i] = 'N';
-                }
-            } else if (direcao == 'V') {
-                for (int i = 0; i < tamanho; i++) {
-                    tabuleiro[x + i][y] = 'N';
-                }
-            }
-            posicionado = true;
-        } else {
-            cout << "Posição inválida ou espaço ocupado, tente novamente." << endl;
-        }
-    }
-}
-
-// Função para processar um tiro
-bool atirar(char tabuleiro[SIZE][SIZE], int x, int y) {
-    if (tabuleiro[x][y] == 'N') {
-        tabuleiro[x][y] = 'X'; // 'X' representa um acerto
-        cout << "Você acertou um navio!" << endl;
-        return true;
-    } else if (tabuleiro[x][y] == '~') {
-        tabuleiro[x][y] = 'O'; // 'O' representa um tiro na água
-        cout << "Tiro na água!" << endl;
-        return false;
-    } else {
-        cout << "Você já atirou aqui antes!" << endl;
-        return false;
-    }
-}
-
-//inclusão de funções de menu
-menu1(){
-  int escolhamodo;
-  int jogotipo;
-  cout << "=======================" << endl;
-  cout << "Escolha uma opcao de jogo: " << endl;
-  cout << "1. Matrizes e Vetores" << endl;
-  cout << "2. " << endl;
-  cout << "3. " << endl;
-  cout << "4. " << endl;
-  cout << "=====================" << endl;
-  cout << "Digite sua escolha: ";
-  cin >> escolhamodo;
-
-  switch (escolhamodo) {
-
-  case 1: {
-  cout << "=======================" << endl;
-  cout << "Escolha uma opcao de jogo: " << endl;
-  cout << "1. Batalha Naval" << endl;
-  cout << "2. " << endl;
-  cout << "3. " << endl;
-  cout << "4. " << endl;
-  cout << "=====================" << endl;
-  cout << "Digite sua escolha: ";
-  cin >> escolhamodo;
-
-    if(escolhamodo = 1){
-      cout << "=======================" << endl;
-      cout << "Escolha uma opcao de jogo: " << endl;
-      cout << "1. Player x Player" << endl;
-      cout << "2. Player x CPU " << endl;
-      cout << "3. CPU x CPU" << endl;
-      cout << endl;
-      cout << "=====================" << endl;
-      cout << "Digite sua escolha: ";
-      cin >> jogotipo;
-      return 0;
+      if (cin.fail()) {
+        cout << "Entrada invÃ¡lida. Tente novamente." << endl;
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        continue;
       }
-     }
-    }
-   }
 
+      x = linhaChar - 'A';
+      y -= 1;
 
-// Função principal
-int main() {
-    char tabuleiroJogador1[SIZE][SIZE];
-    char tabuleiroJogador2[SIZE][SIZE];
-
-    menu1();
-
-
-
-    inicializaTabuleiro(tabuleiroJogador1);
-    inicializaTabuleiro(tabuleiroJogador2);
-
-    cout << "Jogador 1, posicione seus navios:" << endl;
-    posicionaNavio(tabuleiroJogador1, 2); // Navio de 2 espaços
-    posicionaNavio(tabuleiroJogador1, 3); // Navio de 3 espaços
-    posicionaNavio(tabuleiroJogador1, 5); // Navio de 5 espaços
-
-    cout << "Jogador 2, posicione seus navios:" << endl;
-    posicionaNavio(tabuleiroJogador2, 2); // Navio de 2 espaços
-    posicionaNavio(tabuleiroJogador2, 3); // Navio de 3 espaços
-    posicionaNavio(tabuleiroJogador2, 5); // Navio de 5 espaços
-
-    int acertosJogador1 = 0;
-    int acertosJogador2 = 0;
-    int totalAcertos1 = 2 + 3 + 5; // Total de acertos necessários para vencer
-    int totalAcertos2 = 2 + 3 + 5;
-    char linhaChar;
-    int x, y;
-    int jogadas = 0;
-
-    while (acertosJogador1 < totalAcertos1 && acertosJogador2 < totalAcertos2) {
-        cout << "Jogada " << ++jogadas << ": " << endl;
-        if (jogadas % 2 == 1) {
-            cout << "Jogador 1, sua vez de atirar!" << endl;
-            imprimeTabuleiro(tabuleiroJogador2, true); // Esconde navios do Jogador 2
-            cout << "Atire em uma posição (linha coluna): ";
-            cin >> linhaChar >> y;
-
-            x = linhaChar - 'A'; // Converte a linha de char para um índice de 0 a 14
-            y -= 1; // Ajusta a coluna para índice de 0 a 14
-
-            if (x >= 0 && x < SIZE && y >= 0 && y < SIZE) {
-                if (atirar(tabuleiroJogador2, x, y)) {
-                    acertosJogador1++;
-                }
-            } else {
-                cout << "Coordenadas inválidas, tente novamente." << endl;
-            }
+      if (x >= 0 && x < b_size && y >= 0 && y < b_size &&
+          podePosicionarNavioManual(tabuleiro, x, y)) {
+        if (i == 0 || posicaoEhAdjacente(partesNavio.back().first,
+                                         partesNavio.back().second, x, y)) {
+          tabuleiro[x][y] = 'N';
+          partesNavio.push_back(make_pair(x, y));
+          posicionado = true;
         } else {
-            cout << "Jogador 2, sua vez de atirar!" << endl;
-            imprimeTabuleiro(tabuleiroJogador1, true); // Esconde navios do Jogador 1
-            cout << "Atire em uma posição (linha coluna): ";
+          cout << "PosiÃ§Ã£o invÃ¡lida. Tente novamente." << endl;
+        }
+      } else {
+        cout << "PosiÃ§Ã£o invÃ¡lida ou jÃ¡ ocupada. Tente novamente." << endl;
+      }
+    }
+    posicionado = false;
+  }
+}
+
+bool atirar(char tabuleiro[b_size][b_size], int linha, int coluna) {
+  if (tabuleiro[linha][coluna] == 'N') {
+    tabuleiro[linha][coluna] = 'X';
+    return true;
+  } else if (tabuleiro[linha][coluna] == '0') {
+    tabuleiro[linha][coluna] = 'M';
+  }
+  return false;
+}
+
+int contarPartesNaviosRestantes(const char tabuleiro[b_size][b_size]) {
+  int partesRestantes = 0;
+  for (int i = 0; i < b_size; i++) {
+    for (int j = 0; j < b_size; j++) {
+      if (tabuleiro[i][j] == 'N') {
+        partesRestantes++;
+      }
+    }
+  }
+  return partesRestantes;
+}
+
+void limparTela() {
+#ifdef _WIN32
+  (void)system("cls");
+#else
+  (void)system("clear");
+#endif
+}
+
+int main() {
+  int escolhajogo;
+  bool executando = true;
+
+  while (executando) {
+    cout << "================" << endl;
+    cout << "Escolha o jogo: " << endl;
+    cout << "1. Batalha naval" << endl;
+    cout << "2. Jogo 2" << endl;
+    cout << "3. Sair" << endl;
+    cout << "================" << endl;
+
+    while (true) {
+      cout << "Digite sua escolha: ";
+      cin >> escolhajogo;
+
+      if (cin.fail() || escolhajogo < 1 || escolhajogo > 3) {
+        cout << "OpÃ§Ã£o invÃ¡lida! Tente novamente." << endl;
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+      } else {
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        break;
+      }
+    }
+
+    switch (escolhajogo) {
+    case 1: {
+      cout << endl;
+      cout << "* BATALHA NAVAL *" << endl;
+      int escolhamodo;
+
+      cout << "=======================" << endl;
+      cout << "Escolha o modo de jogo: " << endl;
+      cout << "1. PvP" << endl;
+      cout << "2. PvBot" << endl;
+      cout << "3. BotvBot" << endl;
+      cout << "4. Sair" << endl;
+      cout << "=====================" << endl;
+
+      while (true) {
+        cout << "Digite sua escolha: ";
+        cin >> escolhamodo;
+
+        if (cin.fail() || escolhamodo < 1 || escolhamodo > 4) {
+          cout << "OpÃ§Ã£o invÃ¡lida! Tente novamente." << endl;
+          cin.clear();
+          cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        } else {
+          cin.ignore(numeric_limits<streamsize>::max(), '\n');
+          break;
+        }
+      }
+
+      switch (escolhamodo) {
+      case 1: {
+        cout << endl;
+        cout << "* Escolheu PvP *\n" << endl;
+
+        char tabuleiro1[b_size][b_size];
+        char tabuleiro2[b_size][b_size];
+        inicializaTabuleiro(tabuleiro1);
+        inicializaTabuleiro(tabuleiro2);
+
+        cout << "O jogo comeÃ§ou!!\n" << endl;
+
+        cout << "Jogador 1, posicione seus navios:" << endl;
+        imprimeTabuleiro(tabuleiro1, true);
+        for (int i = 0; i < 5; i++) {
+          posicionarNavioManual(tabuleiro1, navios[i], "Jogador 1");
+          cout << endl << "Tabuleiro atual:" << endl;
+          imprimeTabuleiro(tabuleiro1, true);
+        }
+
+        cout << "\nJogador 1 posicionou seus navios. Agora, as tabelas nÃ£o sÃ£o "
+                "visÃ­veis.\n";
+        cout << "\n==========================================================";
+        cout << "\nPressione Enter para o Jogador 2 posicionar seus navios..."
+             << endl;
+        cout << "==========================================================\n";
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cin.get();
+
+        limparTela();
+
+        cout << "Jogador 2, posicione seus navios:" << endl;
+        imprimeTabuleiro(tabuleiro2, true);
+        for (int i = 0; i < 5; i++) {
+          posicionarNavioManual(tabuleiro2, navios[i], "Jogador 2");
+          cout << endl << "Tabuleiro atual:" << endl;
+          imprimeTabuleiro(tabuleiro2, true);
+        }
+        cout << "Jogador 2 posicionou seus navios." << endl;
+
+        limparTela();
+        bool jogoAtivo = true;
+
+        while (jogoAtivo) {
+          char linhaChar;
+          int x, y;
+
+          while (true) {
+            cout << "\nJogador 1, atire no tabuleiro do Jogador 2 (linha "
+                    "coluna): ";
             cin >> linhaChar >> y;
 
-            x = linhaChar - 'A'; // Converte a linha de char para um índice de 0 a 14
-            y -= 1; // Ajusta a coluna para índice de 0 a 14
+            linhaChar = toupper(linhaChar);
+            x = linhaChar - 'A';
 
-            if (x >= 0 && x < SIZE && y >= 0 && y < SIZE) {
-                if (atirar(tabuleiroJogador1, x, y)) {
-                    acertosJogador2++;
-                }
-            } else {
-                cout << "Coordenadas inválidas, tente novamente." << endl;
+            if (cin.fail()) {
+              cout << "Entrada invÃ¡lida. Tente novamente." << endl;
+              cin.clear();
+              cin.ignore(numeric_limits<streamsize>::max(), '\n');
+              continue;
             }
+
+            y -= 1;
+
+            if (x >= 0 && x < b_size && y >= 0 && y < b_size) {
+              break;
+            } else {
+              cout << "PosiÃ§Ã£o invÃ¡lida. Tente novamente." << endl;
+            }
+          }
+
+          if (atirar(tabuleiro2, x, y)) {
+            cout << "Acertou!" << endl;
+          } else {
+            cout << "Errou!" << endl;
+          }
+          cout << "\nTabuleiro atual do Jogador 2:" << endl;
+          imprimeTabuleiro(tabuleiro2, false);
+
+          if (contarPartesNaviosRestantes(tabuleiro2) == 0) {
+            cout << "\nJogador 1 venceu!\n" << endl;
+            jogoAtivo = false;
+            break;
+          }
+
+          while (true) {
+            cout << "\nJogador 2, atire no tabuleiro do Jogador 1 (linha "
+                    "coluna): ";
+            cin >> linhaChar >> y;
+
+            linhaChar = toupper(linhaChar);
+            x = linhaChar - 'A';
+
+            if (cin.fail()) {
+              cout << "Entrada invÃ¡lida. Tente novamente." << endl;
+              cin.clear();
+              cin.ignore(numeric_limits<streamsize>::max(), '\n');
+              continue;
+            }
+
+            y -= 1;
+
+            if (x >= 0 && x < b_size && y >= 0 && y < b_size) {
+              break;
+            } else {
+              cout << "PosiÃ§Ã£o invÃ¡lida. Tente novamente." << endl;
+            }
+          }
+
+          if (atirar(tabuleiro1, x, y)) {
+            cout << "Acertou!" << endl;
+          } else {
+            cout << "Errou!" << endl;
+          }
+          cout << "\nTabuleiro atual do Jogador 1:" << endl;
+          imprimeTabuleiro(tabuleiro1, false);
+
+          if (contarPartesNaviosRestantes(tabuleiro1) == 0) {
+            cout << "\nJogador 2 venceu!\n" << endl;
+            jogoAtivo = false;
+            break;
+          }
         }
+        break;
+      }
+
+      case 2:
+        cout << "Escolheu a opÃ§Ã£o 2" << endl;
+        break;
+      case 3:
+        cout << "Escolheu a opÃ§Ã£o 3" << endl;
+        break;
+      case 4:
+        cout << "Saindo do programa..." << endl;
+        break;
+      }
+      break;
     }
 
-    if (acertosJogador1 == totalAcertos1) {
-        cout << "Parabéns, Jogador 1! Você venceu!" << endl;
-    } else {
-        cout << "Parabéns, Jogador 2! Você venceu!" << endl;
+    case 2:
+      cout << "Nada..." << endl;
+      break;
+    case 3:
+      cout << "Saindo..." << endl;
+      executando = false;
+      break;
     }
-
-    return 0;
+  }
 }
